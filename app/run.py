@@ -1,6 +1,7 @@
 import json
 import joblib
 import plotly
+import argparse
 import pandas as pd
 
 from nltk.stem import WordNetLemmatizer
@@ -8,11 +9,15 @@ from nltk.tokenize import word_tokenize
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
+from plotly.graph_objs import Bar, Histogram
 from sqlalchemy import create_engine
 
 
-app = Flask(__name__)
+parser = argparse.ArgumentParser(description='Run dashboard')
+parser.add_argument('database_filepath', type=str, help='Path to database')
+parser.add_argument('model_filepath', type=str, help='Path to saved model')
+args = parser.parse_args()    
+
 
 def tokenize(text):
     tokens = word_tokenize(text)
@@ -25,12 +30,16 @@ def tokenize(text):
 
     return clean_tokens
 
+
+app = Flask(__name__)
+
+
 # load data
-engine = create_engine('sqlite:///../data/DisasterResponse.db')
+engine = create_engine(f'sqlite:///{args.database_filepath}')
 df = pd.read_sql_table('disaster_data', engine)
 
 # load model
-model = joblib.load("../models/classifier.pkl")
+model = joblib.load(f"{args.model_filepath}")
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -38,38 +47,56 @@ model = joblib.load("../models/classifier.pkl")
 @app.route('/index')
 def index():
     
-    # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
-    genre_counts = df.groupby('genre').count()['message']
-    genre_names = list(genre_counts.index)
+    # Graph 1 -- Category sum
+    category_sum = df.drop(["message", "id", "original", "genre"], axis=1).sum() 
+    category_names = list(category_sum.index)
     
+    # Graph 2 -- Message length
+    df["message_len"] = df["message"].apply(lambda x: len(x))
+
     # create visuals
-    # TODO: Below is an example - modify to create your own visuals
     graphs = [
         {
             'data': [
                 Bar(
-                    x=genre_names,
-                    y=genre_counts
+                    x=category_names,
+                    y=category_sum
                 )
             ],
 
             'layout': {
-                'title': 'Distribution of Message Genres',
+                'title': 'Total Sum for Each Category',
                 'yaxis': {
-                    'title': "Count"
+                    'title': "Sum"
                 },
                 'xaxis': {
-                    'title': "Genre"
+                    'title': "Category"
                 }
             }
-        }
+        },
+        {
+            'data': [
+                Histogram(
+                    x=df["message_len"]
+                )
+            ],
+
+            'layout': {
+                'title': 'Message Length Histogram',
+                'yaxis': {
+                    'title': "Message Length"
+                },
+                'xaxis': {
+                    'title': "Bins"
+                }
+            }
+        }        
     ]
     
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
+
     # render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
