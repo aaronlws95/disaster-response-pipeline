@@ -1,5 +1,6 @@
 import sys
 import pandas as pd
+
 from sqlalchemy import create_engine
 
 
@@ -37,7 +38,7 @@ def clean_data(df):
     df = df.drop("categories", axis=1)
     df = pd.concat([df, categories], axis=1)
     # Drop duplicates
-    df = df.drop_duplicates()
+    df = df.drop_duplicates(["id", "message", "original"])
     return df
 
 

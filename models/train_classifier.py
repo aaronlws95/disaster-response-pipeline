@@ -1,14 +1,16 @@
 import sys
 import re
 import nltk
-import argparse
 nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
+import argparse
 import joblib
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from sqlalchemy import create_engine
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -17,6 +19,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.base import BaseEstimator,TransformerMixin
+
 
 class StartingVerbExtractor(BaseEstimator, TransformerMixin):
     """
@@ -28,7 +31,7 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
         Input:
             text: Input text
         Output:
-            True if starting word in text is a verb
+            True if starting word in text is a verb else False
         """
         sentence_list = nltk.sent_tokenize(text)
         for sentence in sentence_list:
@@ -42,6 +45,13 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        """
+        Apply transform. Overloaded function.
+        Input:
+            X: input text data
+        Output:
+            Input text data transformed by `starting_verb`
+        """
         X_tagged = pd.Series(X).apply(self.starting_verb)
         return pd.DataFrame(X_tagged)
 
@@ -56,7 +66,6 @@ def load_data(database_filepath):
         y: Category class label
         y.columns: Category names
     """
-    engine = create_engine(f'sqlite:///{database_filepath}')
     df = pd.read_sql_table('disaster_data', f'sqlite:///{database_filepath}')  
     X = df["message"]
     y = df.drop(["message", "id", "original", "genre"], axis=1) 
@@ -155,43 +164,36 @@ def save_model(model, model_filepath):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Train and save ML classifier')
     parser.add_argument('database_filepath', type=str, help='Path to database')
     parser.add_argument('model_filepath', type=str, help='Path to save model')
     parser.add_argument('--grid_search', action="store_true", help='Enable grid search')
     args = parser.parse_args()    
 
-    if len(sys.argv) >= 3:
-        database_filepath = args.database_filepath
-        model_filepath = args.model_filepath
-        
-        print('Loading data...\n    DATABASE: {}'.format(database_filepath))
-        X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-        
-        print('Building model...')
-        model = build_model(args.grid_search)
-        
-        print('Training model...')
-        if args.grid_search:
-            print('Grid search is enabled, training will take a while')
-        model.fit(X_train, Y_train)
-        if args.grid_search:
-            print(f"Best params: {model.best_params_}")
+    database_filepath = args.database_filepath
+    model_filepath = args.model_filepath
+    
+    print('Loading data...\n    DATABASE: {}'.format(database_filepath))
+    X, Y, category_names = load_data(database_filepath)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
+    
+    print('Building model...')
+    model = build_model(args.grid_search)
+    
+    print('Training model...')
+    if args.grid_search:
+        print('Grid search is enabled, training will take a while')
+    model.fit(X_train, Y_train)
+    if args.grid_search:
+        print(f"Best params: {model.best_params_}")
 
-        print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+    print('Evaluating model...')
+    evaluate_model(model, X_test, Y_test, category_names)
 
-        print('Saving model...\n    MODEL: {}'.format(model_filepath))
-        save_model(model, model_filepath)
+    print('Saving model...\n    MODEL: {}'.format(model_filepath))
+    save_model(model, model_filepath)
 
-        print('Trained model saved!')
-
-    else:
-        print('Please provide the filepath of the disaster messages database '\
-              'as the first argument and the filepath of the pickle file to '\
-              'save the model to as the second argument. \n\nExample: python '\
-              'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
+    print('Trained model saved!')
 
 
 if __name__ == '__main__':
