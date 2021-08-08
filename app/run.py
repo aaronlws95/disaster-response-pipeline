@@ -13,7 +13,7 @@ from plotly.graph_objs import Bar, Histogram
 from sqlalchemy import create_engine
 
 
-parser = argparse.ArgumentParser(description='Run dashboard')
+parser = argparse.ArgumentParser(description='Run web app')
 parser.add_argument('database_filepath', type=str, help='Path to database')
 parser.add_argument('model_filepath', type=str, help='Path to saved model')
 args = parser.parse_args()    
